@@ -147,20 +147,13 @@ def explore_steam_global_stats(unpacked):
         for keys, values in response.items():
             if isinstance(values, dict):
                 for keys, results in values.items():
+                    tmp = pd.DataFrame()
                     for keys, more_results in results.items():
-                        df[keys] = [more_results]
+                        tmp[keys] = [more_results]
+                    df = df.append(tmp)
             else:
                 df[keys] = [values]
 
-    display(HTML(df.head().to_html()))
-    return df
-
-
-def explore_player_bans(unpacked):
-    df = pd.DataFrame()
-    for keys, values in unpacked.items():
-        for key, value in values[0].items():
-            df[key] = [value]
     display(HTML(df.head().to_html()))
     return df
 
@@ -170,8 +163,10 @@ def explore_player_summaries (unpacked):
     for keys,response in unpacked.items():
         for keys,players in response.items():
             for player in players:
+                tmp = pd.DataFrame()
                 for keys,values in player.items():
-                    df[keys] = [values]
+                    tmp[keys] = [values]
+                df = df.append(tmp)
     df = df.transpose()
     display(HTML(df.head().to_html()))
     return df
@@ -190,3 +185,84 @@ def explore_player_friends (unpacked):
                 df = df.append(tmp)
     display(HTML(df.head().to_html()))
     return df
+
+
+def explore_player_achievements(unpack):
+    df = pd.DataFrame ()
+    for keys, playerstats in unpack.items():
+        for keys,steam_id in playerstats.items():
+            if 'error' in keys:
+                print('Profile is not public')
+            else:
+                if "achievements" in keys:
+                    for achievements in steam_id:
+                        tmp = pd.DataFrame()
+                        for keys, values in achievements.items():
+                            if 'unlocktime' in keys:
+                                values = datetime.datetime.utcfromtimestamp(values)
+                            tmp[keys] = [values]
+                        df = df.append(tmp)
+    display(HTML(df.head().to_html()))
+    return df
+
+
+def explore_recent_games (unpacked):
+    df = pd.DataFrame ()
+    for keys,values in unpacked.items():
+        for key, games in values.items():
+            if 'games' in key:
+                for game in games:
+                    tmp = pd.DataFrame()
+                    for key, item in game.items():
+                        tmp [key] = [item]
+                    df = df.append(tmp)
+    display(HTML(df.head().to_html()))
+    return df
+
+
+def explore_shared_games (unpacked):
+    df = pd.DataFrame ()
+    for keys,values in unpacked.items():
+        for keys, total_count in values.items():
+            if isinstance(total_count, list):
+                tmp = pd.DataFrame()
+                for count in total_count:
+                    for key, value in count.items():
+                        tmp[key] = [value]
+                    df = df.append(tmp)
+    display(HTML(df.head().to_html()))
+    return df
+
+
+def explore_game_schema (unpacked):
+    df = pd.DataFrame ()
+    gameName = ''
+    gameVersion = np.nan
+    for keys,game in unpacked.items():
+        i = 0
+        for field, subfield in game.items():
+            if field == 'gameName':
+                gameName = subfield
+            elif field == 'gameVersion':
+                gameVersion = subfield
+            elif field == 'availableGameStats':
+                tmp = pd.DataFrame()
+                for keys,values in subfield.items():
+                    for value in values:
+                        for keys, schema in value.items():
+                            tmp[keys] = [schema]
+                            tmp['gameName'] = gameName
+                            tmp['gameVersion'] = gameVersion
+                        df = df.append(tmp)
+    display(HTML(df.head().to_html()))
+    return df
+
+
+def explore_player_bans(unpacked):
+    df = pd.DataFrame()
+    for keys, values in unpacked.items():
+        for key, value in values[0].items():
+            df[key] = [value]
+    display(HTML(df.head().to_html()))
+    return df
+
