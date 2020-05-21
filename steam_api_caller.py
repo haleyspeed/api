@@ -111,7 +111,7 @@ def display_news(news):
         display(HTML('<h1>' + title + '</h1>' +
                      '<br><strong>Author: </strong>' + news.author[i] + '<br>' +
                      '<strong>App ID: </strong>' + str(news.appid[i]) + '<br>' +
-                     '<strong>Date: </strong>' + str(datetime.datetime.utcfromtimestamp(news.date[i])) + '<br>' +
+                     '<strong>Date: </strong>' + str(datetime.datetime.utcfromtimestamp(news.date[i],datetime.timezone.utc)) + '<br>' +
                      '<strong>ID: </strong>' + str(news.gid[i]) + '<br>' +
                      '<strong>URL: </strong>' + str(news.url[i]) + '<br>' +
                      '<strong>Feed Label: </strong>' + str(news.feedlabel[i]) + '<br>' +
@@ -180,7 +180,7 @@ def explore_player_friends (unpacked):
                 tmp = pd.DataFrame()
                 for keys, values in friend.items():
                     if "friend_since" in keys:
-                        values = datetime.datetime.utcfromtimestamp(values)
+                        values =  datetime.datetime.fromtimestamp(values, datetime.timezone.utc)
                     tmp[keys] = [values]
                 df = df.append(tmp)
     display(HTML(df.head().to_html()))
@@ -199,7 +199,7 @@ def explore_player_achievements(unpack):
                         tmp = pd.DataFrame()
                         for keys, values in achievements.items():
                             if 'unlocktime' in keys:
-                                values = datetime.datetime.utcfromtimestamp(values)
+                                values = datetime.datetime.utcfromtimestamp(values,datetime.datetime.utc)
                             tmp[keys] = [values]
                         df = df.append(tmp)
     display(HTML(df.head().to_html()))
@@ -265,4 +265,5 @@ def explore_player_bans(unpacked):
             df[key] = [value]
     display(HTML(df.head().to_html()))
     return df
+
 
