@@ -5,6 +5,7 @@ import pandas as pd
 from bs4 import BeautifulSoup, SoupStrainer
 import httplib2
 import datetime
+import numpy as np
 
 
 f_config = 'config.ini'
@@ -232,7 +233,6 @@ def get_guild_roster (realm, guild, access_token):
           + '/' + guild + '/roster?namespace=profile-us&locale=en_US&access_token=' + access_token
     r = requests.get(url)
     unpacked = unpack_json(r.text)
-    
     guild_faction = unpacked['guild']['faction']['name']
     for member in unpacked['members']:
         row = dict(player = member['character']['name'], id = member['character']['id'],
@@ -242,30 +242,124 @@ def get_guild_roster (realm, guild, access_token):
               guild_name = guild, faction = guild_faction)
     return row
 
+def get_player_achievements(player,realm, row):
+    url = 'https://us.api.blizzard.com/profile/wow/character/' + realm \
+          + '/' + player + '/achievements?namespace=profile-us&locale=en_US&access_token=' + access_token
+    r = requests.get(url)
+    if r.status_code == 200:
+        try:
+            unpacked = unpack_json(r.text)
+            row['total_achievements'] = unpacked['total_quantity']
+            row['total_achievement_points'] = unpacked['total_points']
+            for achievement in unpacked['achievements']:
+                try:
+                    if str(achievement['id']) in row.keys():
+                        if achievement['criteria']['is_completed'] == True:
+                            row[str(achievement['id'])] = 1
+                        else:
+                            row[str(achievement['id'])] = 0
+                except:
+                    continue
+            return row
+        except:
+            return 'error'
+    else:
+        return 'error'
 
-realm = 'blackhand'
-player = 'dammitpriest'
-guild = 'murder-murlocs'
-row = get_guild_roster (realm, guild, access_token)
-print(row)
-#row = get_wow_profile (realm, player, access_token)
+
+def get_wow_mounts (player, realm, access_token):
+    url = 'https://us.api.blizzard.com/profile/wow/character/' + realm + '/' + \
+          player + '/collections/mounts?namespace=profile-us&locale=en_US&access_token=' + access_token
+    r = requests.get(url)
+    if r.status_code == 200:
+        try:
+            unpacked = json.loads(r.text)
+            return len(unpacked['mounts'])
+        except:
+            return np.nan
+    else:
+        return np.nan
+
+def get_wow_pets (player, realm, access_token):
+    url = 'https://us.api.blizzard.com/profile/wow/character/' + realm + '/' + player + \
+          '/collections/pets?namespace=profile-us&locale=en_US&access_token=' + access_token
+    r = requests.get(url)
+    if r.status_code == 200:
+        try:
+            unpacked = json.loads(r.text)
+            return len (unpacked['pets'])
+        except:
+            return np.nan
+    else:
+        return np.nan
 
 
-# Example API calls
-#print(get_achievement_category (namespace, locale).head())
-#print(get_achievement_list (namespace, locale).head())
+def get_wow_quests (player, realm, access_token):
+    url = 'https://us.api.blizzard.com/profile/wow/character/' + realm + '/' + player \
+            + '/quests/completed?namespace=profile-us&locale=en_US&access_token=' + access_token
+    r = requests.get(url)
+    if r.status_code == 200:
+        try:
+            unpacked = json.loads(r.text)
+            return len(unpacked['quests'])
+        except:
+            return np.nan
+    else:
+        return np.nan
 
-# Loop for realm, locale (country), and period to get a full dataset
-# Look at how the rankings change over time for players and teams
-# Effect of player in certain roles
-# Effect of affixes and difficulty on team and individual performance
-#mythic_keystone_dungeon_leaderboard_instances = get_mythic_dungeon_leaderboard_instances (11, namespace, locale)
-#mythic_keystone_dungeon_leaderboard = get_mythic_keystone_dungeon_leaderboard(11, namespace, locale, 197, 641)
 
-#TODO: Get player profiles: achievements
-#TODO: Mythic raid dataset
-#TODO: MDI dataset
-#TODO: Esports raid dataset
-#TODO: League of Legends Dataset
-#TODO: Starcraft2 Dataset
-#ToDO: Call of duty dataset
+def get_wow_honor (player, realm, access_token):
+    url = 'https://us.api.blizzard.com/profile/wow/character/' + realm + '/' + player + \
+          '/pvp-summary?namespace=profile-us&locale=en_US&access_token=' + access_token
+    r = requests.get(url)
+
+    if r.status_code == 200:
+        try:
+            unpacked = json.loads(r.text)
+            return unpacked['honor_level']
+        except:
+            return np.nan
+    else:
+        return np.nan
+
+
+final_cols = ['faction', 'guild_name', 'guild_rank', 'id', 'level', 'playable_class',
+              'playable_race','player', 'realm', 'realm_id', 'total_achievements',
+              'total_achievement_points', 'mounts_collected', 'pets_collected','completed_quests',
+              'honor_level']
+achievement_list = pd.read_csv('~/Docs/insight/datasets/wow_achievements.csv')
+for id in achievement_list.id:
+    final_cols.append(str(int(id)))
+empty_row = dict.fromkeys(final_cols)
+i = 1
+for group_num in np.arange(100, 200, 100):
+    f = 'wow_roster' + str(group_num) + '.csv'
+    player_roster = pd.read_csv('~/Docs/insight/api/'+ f)
+    df = pd.DataFrame()
+    for m in player_roster.itertuples():
+        print(i, end=' ')
+        player = m.player.lower()
+        realm = m.realm
+        row = get_player_achievements(player,realm, empty_row)
+        if not isinstance(row, str):
+            row['player'] = player
+            row['realm'] = realm
+            row['level'] = m.level
+            row['playable_class'] = m.playable_class
+            row['faction'] = m.faction
+            row['guild_name'] = m.guild_name
+            row['guild_rank'] = m.id
+            row['playable_race'] = m.playable_race
+            row['realm_id'] = m.realm_id
+            row['mounts_collected'] = get_wow_mounts(player, realm, access_token)
+            row['pets_collected'] = get_wow_pets(player, realm, access_token)
+            row['completed_quests'] = get_wow_quests(player, realm, access_token)
+            row['honor_level'] = get_wow_honor(player, realm, access_token)
+            df = df.append(row, ignore_index=True)
+        if i % 1000 == 0:
+            df.to_csv(f.split('roster')[0] + 'player_stats' + str(i) + '.csv')
+            df = pd.DataFrame()
+        i = i + 1
+
+
+
